@@ -1,0 +1,212 @@
+from flask import Flask, render_template, request
+import requests
+
+app = Flask(__name__)
+
+API_KEY = "7acf788a1b9853d11babf39c60b06310"  # Replace with your actual API key
+BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+FORECAST_URL = "http://api.openweathermap.org/data/2.5/forecast"
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/weather', methods=['POST'])
+def get_weather():
+    city = request.form['city']
+    params = {
+        'q': city,
+        'appid': API_KEY,
+        'units': 'metric'  # or 'imperial' for Fahrenheit
+    }
+    try:
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+        weather_data = response.json()
+
+        if weather_data['cod'] == 200:
+            main_data = weather_data['main']
+            weather_info = weather_data['weather'][0]
+            sys_data = weather_data['sys']
+
+            city_name = weather_data['name']
+            country = sys_data['country']
+            temperature = main_data['temp']
+            feels_like = main_data['feels_like']
+            humidity = main_data['humidity']
+            pressure = main_data['pressure']
+            description = weather_info['description']
+            wind_speed = weather_data['wind']['speed']
+            description_icon = weather_info['icon']
+            sunrise_timestamp = sys_data['sunrise']
+            sunset_timestamp = sys_data['sunset']
+
+            # Convert timestamps to readable time
+            sunrise_time = datetime.fromtimestamp(sunrise_timestamp).strftime('%H:%M')
+            sunset_time = datetime.fromtimestamp(sunset_timestamp).strftime('%H:%M')
+            sunrise_timestamp = sys_data['sunrise']
+            sunset_timestamp = sys_data['sunset']
+
+            # Convert timestamps to readable time
+            sunrise_time = datetime.fromtimestamp(sunrise_timestamp).strftime('%H:%M')
+            sunset_time = datetime.fromtimestamp(sunset_timestamp).strftime('%H:%M')
+
+            forecast_data = get_forecast(city)
+            return render_template('weather.html',
+                                   city_name=city_name,
+                                   country=country,
+                                   temperature=temperature,
+                                   feels_like=feels_like,
+                                   humidity=humidity,
+                                   pressure=pressure,
+                                   description=description,
+                                   wind_speed=wind_speed,
+                                   description_icon=description_icon,
+                                   sunrise_time=sunrise_time,
+                                   sunset_time=sunset_time,
+                                   forecast_days=process_forecast_data(forecast_data))
+        else:
+            error_message = weather_data.get('message', 'City not found or API error.')
+            return render_template('error.html', error_message=error_message)
+
+    except requests.exceptions.HTTPError as http_err:
+        error_message = f"HTTP error occurred: {http_err} - {response.text}"
+        return render_template('error.html', error_message=error_message)
+    except requests.exceptions.ConnectionError as conn_err:
+        error_message = f"Connection error occurred: {conn_err}"
+        return render_template('error.html', error_message=error_message)
+    except requests.exceptions.Timeout as timeout_err:
+        error_message = f"Timeout error occurred: {timeout_err}"
+        return render_template('error.html', error_message=error_message)
+    except requests.exceptions.RequestException as req_err:
+        error_message = f"An unexpected error occurred: {req_err}"
+        return render_template('error.html', error_message=error_message)
+    except Exception as e:
+        error_message = f"An unexpected error occurred: {e}"
+        return render_template('error.html', error_message=error_message)
+
+def get_forecast_by_coords(latitude, longitude):
+    params = {
+        'lat': latitude,
+        'lon': longitude,
+        'appid': API_KEY,
+        'units': 'metric'
+    }
+    try:
+        response = requests.get(FORECAST_URL, params=params)
+        response.raise_for_status()
+        forecast_data = response.json()
+        return forecast_data
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching forecast data by coords: {e}")
+        return None
+
+def get_forecast(city_name):
+    params = {
+        'q': city_name,
+        'appid': API_KEY,
+        'units': 'metric'
+    }
+    try:
+        response = requests.get(FORECAST_URL, params=params)
+        response.raise_for_status()
+        forecast_data = response.json()
+        return forecast_data
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching forecast data: {e}")
+        return None
+
+@app.route('/weather_by_coords', methods=['POST'])
+def get_weather_by_coords():
+    latitude = request.form['latitude']
+    longitude = request.form['longitude']
+    params = {
+        'lat': latitude,
+        'lon': longitude,
+        'appid': API_KEY,
+        'units': 'metric'
+    }
+    try:
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()
+        weather_data = response.json()
+
+        if weather_data['cod'] == 200:
+            main_data = weather_data['main']
+            weather_info = weather_data['weather'][0]
+            sys_data = weather_data['sys']
+
+            city_name = weather_data['name']
+            country = sys_data['country']
+            temperature = main_data['temp']
+            feels_like = main_data['feels_like']
+            humidity = main_data['humidity']
+            pressure = main_data['pressure']
+            description = weather_info['description']
+            wind_speed = weather_data['wind']['speed']
+            description_icon = weather_info['icon']
+
+            forecast_data = get_forecast_by_coords(latitude, longitude)
+            return render_template('weather.html',
+                                   city_name=city_name,
+                                   country=country,
+                                   temperature=temperature,
+                                   feels_like=feels_like,
+                                   humidity=humidity,
+                                   pressure=pressure,
+                                   description=description,
+                                   wind_speed=wind_speed,
+                                   description_icon=description_icon,
+                                   sunrise_time=sunrise_time,
+                                   sunset_time=sunset_time,
+                                   forecast_days=process_forecast_data(forecast_data))
+        else:
+            error_message = weather_data.get('message', 'Location not found or API error.')
+            return render_template('error.html', error_message=error_message)
+
+    except requests.exceptions.HTTPError as http_err:
+        error_message = f"HTTP error occurred: {http_err} - {response.text}"
+        return render_template('error.html', error_message=error_message)
+    except requests.exceptions.ConnectionError as conn_err:
+        error_message = f"Connection error occurred: {conn_err}"
+        return render_template('error.html', error_message=error_err)
+    except requests.exceptions.Timeout as timeout_err:
+        error_message = f"Timeout error occurred: {timeout_err}"
+        return render_template('error.html', error_message=error_message)
+    except requests.exceptions.RequestException as req_err:
+        error_message = f"An unexpected error occurred: {req_err}"
+        return render_template('error.html', error_message=error_message)
+    except Exception as e:
+        error_message = f"An unexpected error occurred: {e}"
+        return render_template('error.html', error_message=error_message)
+
+from datetime import datetime
+
+def process_forecast_data(forecast_data):
+    daily_forecasts = {}
+    for item in forecast_data['list']:
+        date_time = datetime.fromtimestamp(item['dt'])
+        date = date_time.date()
+        if date not in daily_forecasts:
+            daily_forecasts[date] = {
+                'temp': item['main']['temp'],
+                'icon': item['weather'][0]['icon']
+            }
+    
+    forecast_days = []
+    days_of_week = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    today = datetime.now().weekday()
+    
+    for i, date in enumerate(sorted(daily_forecasts.keys())):
+        if i >= 5:  # Get forecast for next 5 days
+            break
+        day_name = days_of_week[(today + i) % 7]
+        forecast_days.append({
+            'name': day_name,
+            'temp': round(daily_forecasts[date]['temp']),
+            'icon': daily_forecasts[date]['icon']
+        })
+    return forecast_days
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
